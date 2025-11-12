@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ပစ္စည်းစာရင်း List App</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Myanmar", sans-serif; margin: 0; background: #f7f7f8; color: #111; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .grid label { font-size: 12px; color: #555; }
+    .grid input, .grid select, .grid textarea {
+      width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; background: #fff;
+    }
+    .grid textarea { resize: vertical; min-height: 38px; }
+    .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .btn { border: 1px solid #d1d5db; background: #111; color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 14px; cursor: pointer; }
+    .btn.secondary { background: #fff; color: #111; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; flex-wrap: wrap; gap: 8px; }
+    .search { flex: 1; min-width: 240px; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top; }
+    .table th { font-size: 12px; color: #666; }
+    .badge { display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid #ddd; background: #fafafa; }
+    .muted { color: #777; font-size: 12px; }
+    .empty { text-align: center; color: #666; padding: 20px; }
+    .footer { margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #555; }
+    .danger { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ပစ္စည်းစာရင်း List App</h1>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>စာရင်းကုဒ် SKU</label>
+          <input id="sku" placeholder="eg. SKU-001"/>
+        </div>
+        <div>
+          <label>ပစ္စည်းအမည်</label>
+          <input id="name" placeholder="eg. Ball Pen"/>
+        </div>
+        <div>
+          <label>အမျိုးအစား</label>
+          <input id="category" placeholder="eg. Stationery"/>
+        </div>
+        <div>
+          <label>တစ်ခုရဈေး</label>
+          <input id="price" type="number" step="0.01" placeholder="eg. 350"/>
+        </div>
+        <div>
+          <label>ဂိုဒေါင်</label>
+          <input id="location" placeholder="eg. Main Warehouse"/>
+        </div>
+        <div>
+          <label>ပမာဏ Qty</label>
+          <input id="qty" type="number" step="1" placeholder="eg. 100"/>
+        </div>
+        <div>
+          <label>အမျိုးအခြေအနေ</label>
+          <select id="status">
+            <option value="in_stock">In stock</option>
+            <option value="low_stock">Low stock</option>
+            <option value="out_of_stock">Out of stock</option>
+          </select>
+        </div>
+        <div>
+          <label>မှတ်ချက်</label>
+          <textarea id="note" placeholder="optional"></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="saveBtn">Save</button>
+        <button class="btn secondary" id="clearBtn">Clear</button>
+        <span class="muted" id="formMsg"></span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="ရှာရန်: SKU / Name / Category / Location"/>
+      <div class="row">
+        <button class="btn secondary" id="exportBtn">Export JSON</button>
+        <button class="btn secondary" id="importBtn">Import JSON</button>
+        <input type="file" id="fileInput" style="display:none" accept="application/json"/>
+      </div>
+    </div>
+
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>အမည်</th>
+            <th>အမျိုးအစား</th>
+            <th>တစ်ခုရဈေး</th>
+            <th>Qty</th>
+            <th>နေရာ</th>
+            <th>အခြေအနေ</th>
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="footer">
+        <span id="count"></span>
+        <span class="muted">LocalStorage ထဲတွင် သိမ်းထားပြီး offline အသုံးပြုနိုင်ပါသည်</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "inventory_items_v1";
+    const form = {
+      sku: document.getElementById("sku"),
+      name: document.getElementById("name"),
+      category: document.getElementById("category"),
+      price: document.getElementById("price"),
+      location: document.getElementById("location"),
+      qty: document.getElementById("qty"),
+      status: document.getElementById("status"),
+      note: document.getElementById("note"),
+      msg: document.getElementById("formMsg"),
+      saveBtn: document.getElementById("saveBtn"),
+      clearBtn: document.getElementById("clearBtn")
+    };
+    const search = document.getElementById("search");
+    const tbody = document.getElementById("tbody");
+    const count = document.getElementById("count");
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const fileInput = document.getElementById("fileInput");
+
+    let editingId = null;
+
+    function readItems() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      try { return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+    }
+    function writeItems(items) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function clearForm() {
+      for (const k of ["sku","name","category","price","location","qty","note"]) {
+        form[k].value = "";
+      }
+      form.status.value = "in_stock";
+      editingId = null;
+      form.msg.textContent = "";
+      form.saveBtn.textContent = "Save";
+    }
+
+    function validate(data) {
+      const errors = [];
+      if (!data.sku.trim()) errors.push("SKU လိုအပ်ပါသည်");
+      if (!data.name.trim()) errors.push("အမည် လိုအပ်ပါသည်");
+      if (data.price < 0) errors.push("ဈေးနှုန်း မရှိနှင့် 음수 မဖြစ်ရ");
+      if (data.qty < 0) errors.push("Qty 음수 မဖြစ်ရ");
+      return errors;
+    }
+
+    function upsertItem(data) {
+      const items = readItems();
+      if (editingId) {
+        const idx = items.findIndex(i => i.id === editingId);
+        if (idx >= 0) items[idx] = { ...items[idx], ...data };
+      } else {
+        const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+        items.push({ id, createdAt: Date.now(), ...data });
+      }
+      writeItems(items);
+      render();
+      clearForm();
+      form.msg.textContent = "Saved ✔️";
+    }
+
+    function deleteItem(id) {
+      const items = readItems();
+      writeItems(items.filter(i => i.id !== id));
+      render();
+    }
+
+    function editItem(id) {
+      const items = readItems();
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      form.sku.value = item.sku;
+      form.name.value = item.name;
+      form.category.value = item.category || "";
+      form.price.value = item.price ?? "";
+      form.location.value = item.location || "";
+      form.qty.value = item.qty ?? "";
+      form.status.value = item.status || "in_stock";
+      form.note.value = item.note || "";
+      editingId = id;
+      form.saveBtn.textContent = "Update";
+      form.msg.textContent = "Editing…";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function formatPrice(p) {
+      if (p === "" || p === null || p === undefined) return "";
+      const num = Number(p);
+      if (Number.isNaN(num)) return "";
+      return new Intl.NumberFormat().format(num);
+    }
+
+    function statusLabel(s) {
+      switch(s){
+        case "in_stock": return "In stock";
+        case "low_stock": return "Low stock";
+        case "out_of_stock": return "Out of stock";
+        default: return s || "";
+      }
+    }
+
+    function matchesQuery(item, q) {
+      if (!q) return true;
+      q = q.toLowerCase();
+      const fields = [item.sku, item.name, item.category, item.location, item.status, item.note];
+      return fields.some(f => (f || "").toLowerCase().includes(q));
+    }
+
+    function render() {
+      const items = readItems();
+      const q = search.value.trim();
+      const view = items.filter(i => matchesQuery(i, q));
+      tbody.innerHTML = "";
+
+      if (view.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">မရှိသေးပါ / မည်သည့် ရလဒ်မှ မတွေ့ပါ</td></tr>';
+      } else {
+        for (const i of view) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="badge">${i.sku || ""}</span></td>
+            <td>${i.name || ""}</td>
+            <td>${i.category || ""}</td>
+            <td>${formatPrice(i.price)}</td>
+            <td>${i.qty ?? ""}</td>
+            <td>${i.location || ""}</td>
+            <td>${statusLabel(i.status)}</td>
+            <td>${i.note || ""}</td>
+            <td>
+              <button class="btn secondary" onclick="editItem('${i.id}')">Edit</button>
+              <button class="btn secondary danger" onclick="deleteItem('${i.id}')">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      count.textContent = `စာရင်းစုစုပေါင်း: ${items.length} items`;
+    }
+
+    form.saveBtn.addEventListener("click", () => {
+      const data = {
+        sku: form.sku.value.trim(),
+        name: form.name.value.trim(),
+        category: form.category.value.trim(),
+        price: Number(form.price.value),
+        location: form.location.value.trim(),
+        qty: Number(form.qty.value),
+        status: form.status.value,
+        note: form.note.value.trim()
+      };
+      const errs = validate(data);
+      if (errs.length) {
+        form.msg.textContent = errs.join(" • ");
+        return;
+      }
+      upsertItem(data);
+    });
+
+    form.clearBtn.addEventListener("click", clearForm);
+    search.addEventListener("input", render);
+
+    exportBtn.addEventListener("click", () => {
+      const items = readItems();
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "inventory.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error("Invalid JSON format");
+        writeItems(data);
+        render();
+        form.msg.textContent = "Imported ✔️";
+      } catch(e) {
+        form.msg.textContent = "Import မအောင်မြင်ပါ: " + e.message;
+      } finally {
+        fileInput.value = "";
+      }
+    });
+
+    // Initialize
+    render();
+  </script>
+</body>
+</html>
